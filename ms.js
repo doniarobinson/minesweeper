@@ -7,48 +7,6 @@ const rl = readline.createInterface({
 
 ////////////////////////////////////
 
-// https://github.com/uxitten/polyfill/blob/master/string.polyfill.js
-// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/padEnd
-/*if (!String.prototype.padEnd) {
-  String.prototype.padEnd = function padEnd(targetLength, padString) {
-    targetLength = targetLength >> 0; //floor if number or convert non-number to 0;
-    padString = String((typeof padString !== 'undefined' ? padString : ' '));
-    if (this.length > targetLength) {
-      return String(this);
-    } else {
-      targetLength = targetLength - this.length;
-      if (targetLength > padString.length) {
-        padString += padString.repeat(targetLength / padString.length); //append to original to ensure we are longer than needed
-      }
-      return String(this) + padString.slice(0, targetLength);
-    }
-  };
-}
-
-// TODO: refactor this function
-function shuffle(string) {
-
-  var array = string.split('');
-  var currentIndex = array.length,
-    temporaryValue, randomIndex;
-
-  // While there remain elements to shuffle...
-  while (currentIndex !== 0) {
-
-    // Pick a remaining element...
-    randomIndex = Math.floor(Math.random() * currentIndex);
-    currentIndex -= 1;
-
-    // And swap it with the current element.
-    temporaryValue = array[currentIndex];
-    array[currentIndex] = array[randomIndex];
-    array[randomIndex] = temporaryValue;
-  }
-
-  var newString = array.join('');
-  return newString;
-}*/
-
 function shuffleArray(array) {
   for (let i = array.length - 1; i > 0; i--) {
     let j = Math.floor(Math.random() * (i + 1));
@@ -58,10 +16,6 @@ function shuffleArray(array) {
 
 ////////////////////////////////////
 
-function printDivider() {
-  console.log("==========");
-}
-
 function printInstructions() {
   console.log("Enter your play - grid coordinates followed by f (flag) or c (clear), i.e. A2c");
 }
@@ -70,35 +24,60 @@ function printInstructions() {
 
 function Game(edgeLength, numMines) {
   this.columnLabels = "";
-  this.board = [].fill('*', 0, numMines);
+  this.board = [];
 
   var numSquares = Math.pow(edgeLength, 2);
-/*  var tmpBoard = ''.padEnd(numMines, '*');
-  tmpBoard = shuffle(tmpBoard.padEnd(numSquares, '0'));
+  // fill with all zeros, then add in correct number of mines
+  var tmpBoard = Array(numSquares).fill(0, 0, numSquares).fill('*', 0, numMines);
+  //  shuffle array to distribute mines randomly
+  shuffleArray(tmpBoard);
 
   var colCharCode = 'A'.charCodeAt();
-  var row = 0;
+  var startRow = 0;
 
-  while (row < tmpBoard.length) {
-    this.board.push(tmpBoard.substr(row, edgeLength));
+  while (startRow < tmpBoard.length) {
+    this.board.push(tmpBoard.slice(startRow, startRow + edgeLength));
+    startRow += edgeLength;
+
     this.columnLabels += String.fromCharCode(colCharCode); // convert 65 to A
     colCharCode++;
-    row += edgeLength;
-  }*/
+  }
 
-  /*this.board.forEach((el, rownum, arr) => {
-    console.log(el[0]);
-    if (el[0] == '*') {
-      console.log("here");
-      console.log("before: " + el[1]);
-      arr[rownum][1] = 1;
-      console.log("after: " + el[1]);
-    }
+  this.isValidSquare = function(index) {
+    return ((index >= 0) && (index < this.board.length));
+  }
 
-  });*/
+  var adjacent = [
+    [-1, -1],
+    [-1, 0],
+    [-1, 1],
+    [0, -1],
+    [0, 1],
+    [1, -1],
+    [1, 0],
+    [1, 1]
+  ];
+
+  this.board.forEach((el, rownum, arr) => {
+    el.forEach((item, colnum) => {
+      if (item == '*') {
+        // try to increment each adjacent cell
+        adjacent.forEach((adjItem) => {
+          var row = rownum + adjItem[0];
+          var col = colnum + adjItem[1];
+
+          if ((this.isValidSquare(row)) &&
+            (this.isValidSquare(col)) &&
+            (this.board[row][col] != '*')) {
+            this.board[row][col]++;
+          }
+        });
+      }
+    });
+  });
 
   this.printBoard = function() {
-    printDivider();
+    this.printDivider();
 
     // label the columns with letters
     console.log("  " + this.columnLabels);
@@ -106,19 +85,27 @@ function Game(edgeLength, numMines) {
     var toPrint = "";
     // print each row of board
     this.board.forEach((el, rownum) => {
-      toPrint = (rownum + 1).toString() + " " + el;
-      /* use this code if each row is an array
-      for (var col = 0; col < el.length; col++) {
-        toPrint += el[col];
-      }*/
+      toPrint = (rownum + 1).toString() + " ";
+      el.forEach((item) => {
+        var printThis = (item !== ' ') ? '-' : ' ';
+        toPrint += printThis;
+      });
       console.log(toPrint);
     });
 
-    printDivider();
+    this.printDivider();
+  }
+
+  this.printDivider = function() {
+    var divider = "==";
+    for (var i = 0; i < this.board.length; i++) {
+      divider += "=";
+    }
+    console.log(divider);
   }
 
   this.isGameOver = function(col, row, action) {
-    return true;
+    return false;
   }
 
   this.isValidAction = function(action) {
@@ -142,14 +129,16 @@ function Game(edgeLength, numMines) {
     if (this.isValidAction(action)) {
       if (this.isValidPlay(col, row)) {
         return (this.isGameOver(col, row, action));
-      } else {
+      }
+      else {
         console.log('That space has already been cleared or is outside the play area. Please try again.');
       }
-    } else {
+    }
+    else {
       console.log('That is not a valid action. Please try again.');
     }
 
-    return true;
+    return false;
   }
 
 }
@@ -171,7 +160,8 @@ rl.on('line', function(line) {
     myGame.printBoard();
     printInstructions();
     rl.prompt();
-  } else
+  }
+  else
     rl.close();
 }).on('close', function() {
   // print board, all spaces exposed
