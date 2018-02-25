@@ -25,35 +25,8 @@ function printInstructions() {
 function Game(edgeLength, numMines) {
   this.columnLabels = "";
   this.firstTurn = true;
-  this.board = [];
-  this.display = Array(edgeLength).fill().map(() => Array(edgeLength).fill('h'));
-  // h - hidden, no flag
-  // e - exposed
-  // f - hidden, flag
-
-  var numSquares = Math.pow(edgeLength, 2);
-  // fill with all zeros, then add in correct number of mines
-  var tmpBoard = Array(numSquares).fill(0, 0, numSquares).fill('*', 0, numMines);
-  //  shuffle array to distribute mines randomly
-  shuffleArray(tmpBoard);
-
-  var colCharCode = 'A'.charCodeAt();
-  var startRow = 0;
-
-  while (startRow < tmpBoard.length) {
-    this.board.push(tmpBoard.slice(startRow, startRow + edgeLength));
-    startRow += edgeLength;
-
-    this.columnLabels += String.fromCharCode(colCharCode); // convert 65 to A
-    colCharCode++;
-  }
-
-  this.isValidSquare = function(colNum, row) {
-    if ((row >= 0) && (row < this.board.length) &&
-      (colNum >= 0) && (colNum < this.board.length))
-      return true;
-    return false;
-  }
+  this.edgeLength = edgeLength;
+  this.numMines = numMines;
 
   var adjacent = [
     [-1, -1],
@@ -66,22 +39,58 @@ function Game(edgeLength, numMines) {
     [1, 1]
   ];
 
-  this.board.forEach((el, rownum, arr) => {
-    el.forEach((item, colnum) => {
-      if (item == '*') {
-        // try to increment each adjacent cell
-        adjacent.forEach((adjItem) => {
-          var row = rownum + adjItem[0];
-          var col = colnum + adjItem[1];
+  this.isValidSquare = function(colNum, row) {
+    if ((row >= 0) && (row < this.board.length) &&
+      (colNum >= 0) && (colNum < this.board.length))
+      return true;
+    return false;
+  }
 
-          if ((this.isValidSquare(col, row)) &&
-            (this.board[row][col] != '*')) {
-            this.board[row][col]++;
-          }
-        });
-      }
+  this.makeBoard = function() {
+    this.board = [];
+    var numSquares = Math.pow(this.edgeLength, 2);
+    // fill with all zeros, then add in correct number of mines
+    var tmpBoard = Array(numSquares).fill(0, 0, numSquares).fill('*', 0, this.numMines);
+    //  shuffle array to distribute mines randomly
+    shuffleArray(tmpBoard);
+
+    var colCharCode = 'A'.charCodeAt();
+    var startRow = 0;
+
+    this.columnLabels = "";
+    while (startRow < tmpBoard.length) {
+      this.board.push(tmpBoard.slice(startRow, startRow + this.edgeLength));
+      startRow += this.edgeLength;
+
+      this.columnLabels += String.fromCharCode(colCharCode); // convert 65 to A
+      colCharCode++;
+    }
+
+    this.board.forEach((el, rownum, arr) => {
+      el.forEach((item, colnum) => {
+        if (item == '*') {
+          // try to increment each adjacent cell
+          adjacent.forEach((adjItem) => {
+            var row = rownum + adjItem[0];
+            var col = colnum + adjItem[1];
+
+            if ((this.isValidSquare(col, row)) &&
+              (this.board[row][col] != '*')) {
+              this.board[row][col]++;
+            }
+          });
+        }
+      });
     });
-  });
+
+  }
+
+  this.makeBoard();
+
+  this.display = Array(edgeLength).fill().map(() => Array(edgeLength).fill('h'));
+  // h - hidden, no flag
+  // e - exposed
+  // f - hidden, flag
 
   this.printBoard = function() {
     this.printDivider();
@@ -149,38 +158,55 @@ function Game(edgeLength, numMines) {
   this.isGameOver = function() {
     for (var i = 0; i < this.display.length; i++) {
       for (var j = 0; j < this.display.length; j++) {
-        if ((this.board[i][j] == '*') && (this.display[i][j] != 'f'))
+        if ((this.board[i][j] != '*') && (this.display[i][j] != 'e'))
           return false;
       }
     }
+    console.log("Congratulations, you won the whole thing!");
     return true;
   }
 
   this.makePlay = function(col, row, action) {
     // how can a game be over? user tried to 'clear' mine or all mines are correctly flagged
-    if (action == 'c') {
-      if (this.board[row][col] == '*') {
-        this.display[row][col] = 'e';
-        this.board[row][col] = 'X';
-        console.log('Uh oh, you hit a mine');
-        return true;
+
+
+    if (this.firstTurn == true) {
+      while (this.board[row][col] != 0) {
+        // rearrange board until the square they chose is a 0
+        this.makeBoard();
       }
-      else {
-        this.display[row][col] = 'e';
-        if (this.board[row][col] == 0) {
-          // expose all adjacent 0 squares
-          this.exposeAdjacent(row, col);
+
+      this.firstTurn = false;
+    }
+
+    if (this.display[row][col] != 'e') {
+
+      if (action == 'c') {
+
+        if (this.board[row][col] == '*') {
+          this.display[row][col] = 'e';
+          this.board[row][col] = 'X';
+          console.log('Uh oh, you hit a mine');
+          return true;
         }
+        else {
+          this.display[row][col] = 'e';
+          if (this.board[row][col] == 0) {
+            // expose all adjacent 0 squares
+            this.exposeAdjacent(row, col);
+          }
+          // is game over?
+        }
+      }
+      else if (action == 'f') {
+        this.display[row][col] = 'f';
         // is game over?
       }
-    }
-    else if (action == 'f') {
-      this.display[row][col] = 'f';
-      // is game over?
-    }
-    else if (action == 'u') {
-      this.display[row][col] = 'h';
-      return false;
+      else if (action == 'u') {
+        this.display[row][col] = 'h';
+        return false;
+      }
+
     }
 
     return this.isGameOver();
@@ -201,10 +227,6 @@ function Game(edgeLength, numMines) {
 
     if (this.isValidAction(action)) {
       if (this.isValidSquare(colNum, row)) {
-        if (this.firstTurn === true) {
-          // on first turn, if they hit a mine, move the mine
-          this.firstTurn = false;
-        }
         return this.makePlay(colNum, row, action);
       }
       else {
