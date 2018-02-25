@@ -95,8 +95,12 @@ function Game(edgeLength, numMines) {
       toPrint = (rownum + 1).toString() + " ";
       el.forEach((item, colnum) => {
         var printThis = '-';
-        if (this.display[rownum][colnum] == 'e')
-          printThis = item;
+        if (this.display[rownum][colnum] == 'e') {
+          if (item == 0)
+            printThis = ' ';
+          else
+            printThis = item;
+        }
         else if (this.display[rownum][colnum] == 'f')
           printThis = 'f';
         toPrint += printThis;
@@ -115,9 +119,27 @@ function Game(edgeLength, numMines) {
     console.log(divider);
   }
 
+  this.exposeAdjacent = function(rownum, colnum) {
+    // expose all adjacencies that are numbers
+    // if they are zero, also call exposeAdjacent again
+
+    adjacent.forEach((adjItem) => {
+      var row = rownum + adjItem[0];
+      var col = colnum + adjItem[1];
+
+      if ((this.isValidSquare(col, row)) &&
+        (this.display[row][col] == 'h')) {
+        this.display[row][col] = 'e';
+        if (this.board[row][col] == 0) {
+          this.exposeAdjacent(row, col);
+        }
+      }
+    });
+  }
+
   this.exposeEntireBoard = function() {
-    for (var i=0; i<this.display.length; i++) {
-      for (var j=0; j<this.display.length; j++) {
+    for (var i = 0; i < this.display.length; i++) {
+      for (var j = 0; j < this.display.length; j++) {
         if (this.board[i][j] == '*')
           this.display[i][j] = 'e';
       }
@@ -125,13 +147,20 @@ function Game(edgeLength, numMines) {
   }
 
   this.isGameOver = function() {
-    return false;
+    for (var i = 0; i < this.display.length; i++) {
+      for (var j = 0; j < this.display.length; j++) {
+        if ((this.board[i][j] == '*') && (this.display[i][j] != 'f'))
+          return false;
+      }
+    }
+    return true;
   }
 
   this.makePlay = function(col, row, action) {
     // how can a game be over? user tried to 'clear' mine or all mines are correctly flagged
     if (action == 'c') {
       if (this.board[row][col] == '*') {
+        this.display[row][col] = 'e';
         this.board[row][col] = 'X';
         console.log('Uh oh, you hit a mine');
         return true;
@@ -140,7 +169,7 @@ function Game(edgeLength, numMines) {
         this.display[row][col] = 'e';
         if (this.board[row][col] == 0) {
           // expose all adjacent 0 squares
-          // this.exposeAdjacent();
+          this.exposeAdjacent(row, col);
         }
         // is game over?
       }
