@@ -17,14 +17,19 @@ function shuffleArray(array) {
 ////////////////////////////////////
 
 function printInstructions() {
-  console.log("Enter your play - grid coordinates followed by f (flag) or c (clear), i.e. A2c");
+  console.log("Enter your play - grid coordinates followed by f (flag), u (unflag) or c (clear space), i.e. A2c");
 }
 
 ////////////////////////////////////
 
 function Game(edgeLength, numMines) {
   this.columnLabels = "";
+  this.firstTurn = true;
   this.board = [];
+  this.display = Array(edgeLength).fill().map(() => Array(edgeLength).fill('h'));
+  // h - hidden, no flag
+  // e - exposed
+  // f - hidden, flag
 
   var numSquares = Math.pow(edgeLength, 2);
   // fill with all zeros, then add in correct number of mines
@@ -43,8 +48,11 @@ function Game(edgeLength, numMines) {
     colCharCode++;
   }
 
-  this.isValidSquare = function(index) {
-    return ((index >= 0) && (index < this.board.length));
+  this.isValidSquare = function(colNum, row) {
+    if ((row >= 0) && (row < this.board.length) &&
+      (colNum >= 0) && (colNum < this.board.length))
+      return true;
+    return false;
   }
 
   var adjacent = [
@@ -66,8 +74,7 @@ function Game(edgeLength, numMines) {
           var row = rownum + adjItem[0];
           var col = colnum + adjItem[1];
 
-          if ((this.isValidSquare(row)) &&
-            (this.isValidSquare(col)) &&
+          if ((this.isValidSquare(col, row)) &&
             (this.board[row][col] != '*')) {
             this.board[row][col]++;
           }
@@ -86,8 +93,12 @@ function Game(edgeLength, numMines) {
     // print each row of board
     this.board.forEach((el, rownum) => {
       toPrint = (rownum + 1).toString() + " ";
-      el.forEach((item) => {
-        var printThis = (item !== ' ') ? '-' : ' ';
+      el.forEach((item, colnum) => {
+        var printThis = '-';
+        if (this.display[rownum][colnum] == 'e')
+          printThis = item;
+        else if (this.display[rownum][colnum] == 'f')
+          printThis = 'f';
         toPrint += printThis;
       });
       console.log(toPrint);
@@ -104,31 +115,68 @@ function Game(edgeLength, numMines) {
     console.log(divider);
   }
 
-  this.isGameOver = function(col, row, action) {
+  this.exposeEntireBoard = function() {
+    for (var i=0; i<this.display.length; i++) {
+      for (var j=0; j<this.display.length; j++) {
+        if (this.board[i][j] == '*')
+          this.display[i][j] = 'e';
+      }
+    }
+  }
+
+  this.isGameOver = function() {
     return false;
+  }
+
+  this.makePlay = function(col, row, action) {
+    // how can a game be over? user tried to 'clear' mine or all mines are correctly flagged
+    if (action == 'c') {
+      if (this.board[row][col] == '*') {
+        this.board[row][col] = 'X';
+        console.log('Uh oh, you hit a mine');
+        return true;
+      }
+      else {
+        this.display[row][col] = 'e';
+        if (this.board[row][col] == 0) {
+          // expose all adjacent 0 squares
+          // this.exposeAdjacent();
+        }
+        // is game over?
+      }
+    }
+    else if (action == 'f') {
+      this.display[row][col] = 'f';
+      // is game over?
+    }
+    else if (action == 'u') {
+      this.display[row][col] = 'h';
+      return false;
+    }
+
+    return this.isGameOver();
   }
 
   this.isValidAction = function(action) {
-    if ((action == 'c') || (action == 'f'))
-      return true;
-    return false;
-  }
-
-  this.isValidPlay = function(col, row) {
-    if ((this.columnLabels.indexOf(col) >= 0) && (row <= this.board.length))
+    var validActions = 'cfu';
+    if (validActions.indexOf(action) >= 0)
       return true;
     return false;
   }
 
   // returns true if the game is over, false if it is not
   this.attemptPlay = function(play) {
-    var col = play[0];
-    var row = play[1];
+    var colNum = play[0].toUpperCase().charCodeAt() - 'A'.charCodeAt();
+    var row = play[1] - 1; // change to zero index
     var action = play[2].toLowerCase();
 
     if (this.isValidAction(action)) {
-      if (this.isValidPlay(col, row)) {
-        return (this.isGameOver(col, row, action));
+      if (this.isValidSquare(colNum, row)) {
+        if (this.firstTurn === true) {
+          // on first turn, if they hit a mine, move the mine
+          this.firstTurn = false;
+        }
+        return this.makePlay(colNum, row, action);
       }
       else {
         console.log('That space has already been cleared or is outside the play area. Please try again.');
@@ -155,6 +203,7 @@ printInstructions();
 rl.prompt();
 
 rl.on('line', function(line) {
+  console.log('\n');
   gameOver = myGame.attemptPlay(line);
   if (gameOver === false) {
     myGame.printBoard();
@@ -164,7 +213,10 @@ rl.on('line', function(line) {
   else
     rl.close();
 }).on('close', function() {
-  // print board, all spaces exposed
+  // print board, all mines exposed
+  console.log('');
+  myGame.exposeEntireBoard();
+  myGame.printBoard();
   console.log('Game over');
   process.exit(0);
 });
